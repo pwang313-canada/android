@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">googlelogin</string>
+    <string name="default_web_client_id">
+        1001752137422-3fe439nlu28bfld024u2rn1pualput4a.apps.googleusercontent.com
+    </string>
+</resources>
