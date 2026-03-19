@@ -1,53 +1,67 @@
-package com.example.googlelogin
+package org.cakk.googlelogin
 
-import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.*
-import androidx.compose.ui.unit.dp
-import com.google.android.gms.auth.api.signin.*
-import com.google.android.gms.common.api.ApiException
-import com.google.firebase.auth.*
+import androidx.lifecycle.lifecycleScope
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
-    private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var auth: FirebaseAuth
+    private lateinit var credentialManager: CredentialManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         auth = FirebaseAuth.getInstance()
-
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
-            .requestEmail()
-            .build()
-
-        googleSignInClient = GoogleSignIn.getClient(this, gso)
-
-        val launcher = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-            try {
-                val account = task.getResult(ApiException::class.java)
-                firebaseAuthWithGoogle(account.idToken!!)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        credentialManager = CredentialManager.create(this)
 
         setContent {
-            LoginScreen {
-                val intent = googleSignInClient.signInIntent
-                launcher.launch(intent)
+            LoginScreen(
+                onSignInClick = { launchSignIn() }
+            )
+        }
+    }
+
+    private fun launchSignIn() {
+        lifecycleScope.launch {
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(getString(R.string.default_web_client_id))
+                    .setAutoSelectEnabled(false)
+                    .build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+
+                val result = credentialManager.getCredential(
+                    this@MainActivity,
+                    request
+                )
+
+                val credential = result.credential
+
+                if (credential is GoogleIdTokenCredential) {
+                    val idToken = credential.idToken
+                    firebaseAuthWithGoogle(idToken)
+                } else {
+                    Log.e("LOGIN", "Unexpected credential type")
+                }
+
+            } catch (e: androidx.credentials.exceptions.GetCredentialCancellationException) {
+                Log.d("LOGIN", "User cancelled sign-in")
+            } catch (e: Exception) {
+                Log.e("LOGIN", "Sign-in failed: ${e.message}", e)
             }
         }
     }
@@ -59,29 +73,11 @@ class MainActivity : ComponentActivity() {
             .addOnCompleteListener(this) { task ->
                 if (task.isSuccessful) {
                     val user = auth.currentUser
-                    println("Login success: ${user?.email}")
+                    Log.d("LOGIN", "Success: ${user?.email}")
                 } else {
-                    println("Login failed")
+                    Log.e("LOGIN", "Failed: ${task.exception?.message}")
                 }
             }
     }
 }
 
-@Composable
-fun LoginScreen(onLoginClick: () -> Unit) {
-
-    Surface(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Button(
-                onClick = onLoginClick,
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text("Sign in with Google")
-            }
-        }
-    }
-}

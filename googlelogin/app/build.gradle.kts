@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "org.cakk.googlelogin"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.cakk.googlelogin"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -57,4 +57,13 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1")) // or latest version
+    implementation("com.google.firebase:firebase-auth")               // or firebase-auth-ktx
+
+    // Credential Manager + Google ID (required in 2025+)
+    implementation("androidx.credentials:credentials:1.3.0")           // check latest
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    implementation("com.google.android.gms:play-services-auth:21.5.1")   // or any version
 }
